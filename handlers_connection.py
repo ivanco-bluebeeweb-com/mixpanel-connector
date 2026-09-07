@@ -47,7 +47,7 @@ async def resolve_client(ctx, connection_id: str = "") -> MixpanelClient:
     )
 
 @chat.function("connect_mixpanel_connector", "Connect Mixpanel account via credentials.", action_type="write", chain_callable=True, event="mixpanel-connector.connect_mixpanel_connector", effects=["create:connection"], data_model=ConnectionRecord)
-async def connect_mixpanel_connector(params: ConnectParams, ctx) -> ActionResult:
+async def connect_mixpanel_connector(ctx, params: ConnectParams) -> ActionResult:
     client = MixpanelClient(
         project_token=params.project_token,
         api_secret=params.api_secret or "",
@@ -91,7 +91,7 @@ async def connect_mixpanel_connector(params: ConnectParams, ctx) -> ActionResult
     return ActionResult.success(out, summary=f"Connected Mixpanel ({rec['label']}).")
 
 @chat.function("list_connections", "List configured Mixpanel connections.", action_type="read", chain_callable=True, event="mixpanel-connector.list_connections", effects=["read:connections"], data_model=ConnectionList)
-async def list_connections(params: NoParams, ctx) -> ActionResult:
+async def list_connections(ctx, params: NoParams) -> ActionResult:
     conns = await get_connections_list(ctx)
     items = [{
         "id": c.get("id"),
@@ -104,7 +104,7 @@ async def list_connections(params: NoParams, ctx) -> ActionResult:
     return ActionResult.success({"connections": items, "total": len(items)}, summary=f"Found {len(items)} connection(s).")
 
 @chat.function("disconnect_mixpanel_connector", "Disconnect Mixpanel account and delete stored credentials.", action_type="destructive", chain_callable=True, event="mixpanel-connector.disconnect_mixpanel_connector", effects=["delete:connection"], data_model=DeleteResult)
-async def disconnect_mixpanel_connector(params: ConnectionIdParams, ctx) -> ActionResult:
+async def disconnect_mixpanel_connector(ctx, params: ConnectionIdParams) -> ActionResult:
     conns = await get_connections_list(ctx)
     if not conns:
         return ActionResult.error("No connections to disconnect.")
