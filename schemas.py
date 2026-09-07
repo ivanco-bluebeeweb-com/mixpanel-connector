@@ -9,8 +9,10 @@ class NoParams(BaseModel):
 
 class ConnectParams(BaseModel):
     label: str = Field(default="", description="Friendly connection label, e.g. Primary Mixpanel.")
-    api_key: str = Field(description="API Key / Project Token")
-    base_url: str = Field(default="https://mixpanel.com/api/2.0", description="Mixpanel API base URL.")
+    project_token: str = Field(description="Mixpanel Project Token (for event ingestion).")
+    api_secret: Optional[str] = Field(default="", description="Mixpanel API Secret (for data export / query API calls).")
+    project_id: Optional[str] = Field(default="", description="Mixpanel Project ID (e.g. 4061542).")
+    base_url: str = Field(default="https://api.mixpanel.com", description="Mixpanel Ingestion API base URL.")
 
 class ConnectionIdParams(BaseModel):
     connection_id: str = Field(default="", description="Connection identifier (empty uses active connection).")
@@ -18,7 +20,8 @@ class ConnectionIdParams(BaseModel):
 class ConnectionRecord(BaseModel):
     id: str
     label: str
-    masked_key: str
+    masked_token: str
+    project_id: Optional[str] = None
     base_url: str
     is_active: bool
 
@@ -47,7 +50,7 @@ class ListEventParams(BaseModel):
 
 class GetEventParams(BaseModel):
     connection_id: str = Field(default="", description="Optional connection ID.")
-    event_id: str = Field(description="Mixpanel Event ID.")
+    event_id: str = Field(description="Mixpanel Event Name or ID.")
 
 class AuditHealthReport(BaseModel):
     healthy: bool

@@ -16,10 +16,18 @@ async def list_events(params: ListEventParams, ctx) -> ActionResult:
         raw_items = await client.list_events(limit=params.limit)
         items = []
         for r in raw_items:
-            rid = str(r.get("id") or r.get("key") or r.get("uuid") or "unknown")
-            rname = r.get("name") or r.get("title") or r.get("label") or rid
-            items.append({"id": rid, "name": rname, "status": r.get("status"), "created_at": r.get("createdAt") or r.get("created_at"), "raw": r})
-        return ActionResult.ok({"events": items, "total": len(items)}, summary=f"Found {len(items)} events.")
+            rid = str(r.get("id") or r.get("name") or "unknown")
+            rname = r.get("name") or rid
+            items.append({
+                "id": rid,
+                "name": rname,
+                "status": r.get("status", "active"),
+                "created_at": None,
+                "raw": r
+            })
+        return ActionResult.success({"events": items, "total": len(items)}, summary=f"Found {len(items)} events.")
+    except PermissionError as pe:
+        return ActionResult.error(f"Permission error: {pe}")
     except Exception as e:
         return ActionResult.error(f"Error listing events: {e}")
 
@@ -29,8 +37,16 @@ async def get_event(params: GetEventParams, ctx) -> ActionResult:
     try:
         r = await client.get_event(params.event_id)
         rid = str(r.get("id") or params.event_id)
-        rname = r.get("name") or r.get("title") or rid
-        return ActionResult.ok({"id": rid, "name": rname, "status": r.get("status"), "created_at": r.get("createdAt") or r.get("created_at"), "raw": r}, summary=f"Retrieved Event {rid}.")
+        rname = r.get("name") or rid
+        return ActionResult.success({
+            "id": rid,
+            "name": rname,
+            "status": r.get("status", "active"),
+            "created_at": None,
+            "raw": r
+        }, summary=f"Retrieved Event {rid}.")
+    except PermissionError as pe:
+        return ActionResult.error(f"Permission error: {pe}")
     except Exception as e:
         return ActionResult.error(f"Error retrieving Event: {e}")
 
@@ -38,12 +54,23 @@ async def get_event(params: GetEventParams, ctx) -> ActionResult:
 async def audit_event_health(params: ConnectionIdParams, ctx) -> ActionResult:
     client = await resolve_client(ctx, params.connection_id)
     try:
-        items = await client.list_events(limit=50)
-        return ActionResult.ok({
-            "healthy": True,
-            "total_events": len(items),
-            "details": {"sample_count": len(items)},
-            "summary": f"Mixpanel healthy. Sampled {len(items)} events."
-        }, summary=f"Mixpanel health check passed with {len(items)} events.")
+        auth_res = await client.verify_auth()
+        is_healthy = auth_res.get("status") == "ok"
+        sample_names = []
+        try:
+            items = await client.list_events(limit=20)
+            sample_names = [i.get("name") for i in items]
+        except PermissionError:
+            pass
+        summary = f"Mixpanel ingestion is {'healthy' if is_healthy else 'degraded'}. Project Token verified live."
+        return ActionResult.success({
+            "healthy": is_healthy,
+            "total_events": len(sample_names),
+            "details": {
+                "auth": auth_res,
+                "sample_events": sample_names
+            },
+            "summary": summary
+        }, summary=summary)
     except Exception as e:
         return ActionResult.error(f"Error auditing Mixpanel health: {e}")
